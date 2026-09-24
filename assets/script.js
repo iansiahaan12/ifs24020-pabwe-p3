@@ -1,15 +1,19 @@
 /**
  * 1. INTEGRASI TAB & PROYEK
- * Mengelola navigasi tab dan menyimpan state terakhir ke localStorage[cite: 1].
+ * Mengelola navigasi tab, path URL, dan menyimpan state terakhir ke localStorage.
  */
 document.addEventListener("DOMContentLoaded", () => {
     const tabBtns = document.querySelectorAll(".tab-btn");
     const tabPanels = document.querySelectorAll(".tab-panel");
     
-    // Muat tab terakhir dari localStorage (jika ada)[cite: 1]
-    const savedTab = localStorage.getItem("activeTab") || "expense-panel";
-    
-    function activateTab(targetId) {
+    // Peta ID panel ke path URL
+    const pathMap = {
+        "expense-panel": "/",
+        "bookmark-panel": "/bookmark",
+        "quiz-panel": "/quizapp"
+    };
+
+    function activateTab(targetId, updateHistory = true) {
         // Update Panel
         tabPanels.forEach(panel => {
             if(panel.id === targetId) {
@@ -30,10 +34,16 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-        // Simpan state ke localStorage[cite: 1]
+        // Simpan state ke localStorage
         localStorage.setItem("activeTab", targetId);
 
-        history.replaceState(null, null, '#${targetId}');
+        // Ubah URL di address bar tanpa reload
+        if (updateHistory) {
+            const newPath = pathMap[targetId] || "/";
+            if (window.location.pathname !== newPath) {
+                window.history.pushState({ tab: targetId }, "", newPath);
+            }
+        }
     }
 
     tabBtns.forEach(btn => {
@@ -42,8 +52,28 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Inisialisasi tab aktif saat muat halaman
-    activateTab(savedTab);
+    // Handle tombol Back/Forward pada browser
+    window.addEventListener("popstate", (e) => {
+        if (e.state && e.state.tab) {
+            activateTab(e.state.tab, false);
+        } else {
+            activateTab("expense-panel", false);
+        }
+    });
+
+    // Tentukan tab aktif saat halaman dimuat (berdasarkan URL path atau localStorage)
+    const currentPath = window.location.pathname;
+    let initialTab = localStorage.getItem("activeTab") || "expense-panel";
+    
+    // Jika path URL cocok dengan salah satu fitur, gunakan itu sebagai tab awal
+    for (const [id, path] of Object.entries(pathMap)) {
+        if (path === currentPath && currentPath !== "/") {
+            initialTab = id;
+            break;
+        }
+    }
+    
+    activateTab(initialTab, false);
     
     // Inisialisasi semua fitur
     initExpenseTracker();
@@ -54,10 +84,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 /**
  * 2. FITUR PENCATATAN PENGELUARAN HARIAN
- * CRUD, filter, kalkulasi, localStorage (Key: expensesData)[cite: 1]
+ * CRUD, filter, kalkulasi, localStorage (Key: expensesData)
  */
 function initExpenseTracker() {
-    let expenses = JSON.parse(localStorage.getItem('expensesData')) || []; // Key berbeda agar tidak menimpa[cite: 1]
+    let expenses = JSON.parse(localStorage.getItem('expensesData')) || [];
     let editModeId = null;
 
     const form = document.getElementById('expense-form');
@@ -116,7 +146,7 @@ function initExpenseTracker() {
     }
 
     function saveToLocal() {
-        localStorage.setItem('expensesData', JSON.stringify(expenses)); // Key khusus fitur Expense[cite: 1]
+        localStorage.setItem('expensesData', JSON.stringify(expenses));
     }
 
     form.addEventListener('submit', (e) => {
@@ -187,10 +217,10 @@ function initExpenseTracker() {
 
 /**
  * 3. FITUR BOOKMARK MANAGER
- * CRUD link, validasi Regex, localStorage (Key: bookmarksData)[cite: 1]
+ * CRUD link, validasi Regex, localStorage (Key: bookmarksData)
  */
 function initBookmarkManager() {
-    let bookmarks = JSON.parse(localStorage.getItem('bookmarksData')) || []; // Key berbeda agar tidak menimpa[cite: 1]
+    let bookmarks = JSON.parse(localStorage.getItem('bookmarksData')) || [];
     let editBookmarkId = null;
 
     const form = document.getElementById('bookmark-form');
@@ -231,7 +261,7 @@ function initBookmarkManager() {
     }
 
     function saveToLocal() {
-        localStorage.setItem('bookmarksData', JSON.stringify(bookmarks)); // Key khusus fitur Bookmark[cite: 1]
+        localStorage.setItem('bookmarksData', JSON.stringify(bookmarks));
     }
 
     form.addEventListener('submit', (e) => {
@@ -306,7 +336,7 @@ function initBookmarkManager() {
 
 /**
  * 4. FITUR KUIS INTERAKTIF
- * Array of object, state, dan localStorage (Key: quizHighScoreData)[cite: 1]
+ * Array of object, state, dan localStorage (Key: quizHighScoreData)
  */
 function initQuizApp() {
     const questions = [
@@ -319,7 +349,6 @@ function initQuizApp() {
 
     let currentQ = 0;
     let score = 0;
-    // Key berbeda dari fitur lainnya[cite: 1]
     let highScore = parseInt(localStorage.getItem('quizHighScoreData')) || 0; 
 
     // Elements
@@ -398,7 +427,7 @@ function initQuizApp() {
         
         if (score > highScore) {
             highScore = score;
-            localStorage.setItem('quizHighScoreData', highScore); // Simpan ke key khusus Kuis[cite: 1]
+            localStorage.setItem('quizHighScoreData', highScore); 
             elHighScore.innerText = highScore;
         }
     }
