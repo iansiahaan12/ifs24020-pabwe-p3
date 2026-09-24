@@ -6,13 +6,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabBtns = document.querySelectorAll(".tab-btn");
   const tabPanels = document.querySelectorAll(".tab-panel");
 
-  // Pemetaan ID panel yang lebih bersih untuk URL (opsional, agar URL lebih rapi)
   const tabMap = {
     expense: "expense-panel",
     bookmark: "bookmark-panel",
     quiz: "quiz-panel",
   };
-  // Balikan map untuk mendapatkan nama param dari ID panel
+  
   const reverseTabMap = {
     "expense-panel": "expense",
     "bookmark-panel": "bookmark",
@@ -34,22 +33,21 @@ document.addEventListener("DOMContentLoaded", () => {
       if (btn.dataset.target === targetId) {
         btn.classList.add("border-blue-600", "text-blue-600", "active-tab");
         btn.classList.remove("border-transparent", "text-gray-500");
+        btn.setAttribute("aria-selected", "true");
       } else {
         btn.classList.remove("border-blue-600", "text-blue-600", "active-tab");
         btn.classList.add("border-transparent", "text-gray-500");
+        btn.setAttribute("aria-selected", "false");
       }
     });
 
-    // Simpan state ke localStorage
     localStorage.setItem("activeTab", targetId);
 
-    // Ubah URL menggunakan Query Parameter (?tab=nama-tab)
     if (updateHistory) {
       const tabParam = reverseTabMap[targetId] || "expense";
       const url = new URL(window.location.href);
       url.searchParams.set("tab", tabParam);
 
-      // Cek apakah parameter sudah sama agar tidak duplikat di history
       if (window.location.search !== `?tab=${tabParam}`) {
         window.history.pushState({ tab: targetId }, "", url);
       }
@@ -62,29 +60,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Handle tombol Back/Forward pada browser
   window.addEventListener("popstate", (e) => {
     if (e.state && e.state.tab) {
       activateTab(e.state.tab, false);
     } else {
-      // Fallback jika tidak ada state, baca dari URL
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
       activateTab(tabMap[tabParam] || "expense-panel", false);
     }
   });
 
-  // Inisialisasi tab aktif saat muat halaman
   const params = new URLSearchParams(window.location.search);
   const tabParam = params.get("tab");
 
-  // Prioritas: URL Parameter > LocalStorage > Default (Expense)
   let initialTab = "expense-panel";
   if (tabParam && tabMap[tabParam]) {
     initialTab = tabMap[tabParam];
   } else {
     initialTab = localStorage.getItem("activeTab") || "expense-panel";
-    // Perbarui URL agar sesuai dengan localStorage jika belum ada parameter
     const initialParam = reverseTabMap[initialTab];
     const url = new URL(window.location.href);
     url.searchParams.set("tab", initialParam);
@@ -93,7 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   activateTab(initialTab, false);
 
-  // Inisialisasi semua fitur
   initExpenseTracker();
   initBookmarkManager();
   initQuizApp();
@@ -101,7 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 /**
  * 2. FITUR PENCATATAN PENGELUARAN HARIAN
- * CRUD, filter, kalkulasi, localStorage (Key: expensesData)
  */
 function initExpenseTracker() {
   let expenses = JSON.parse(localStorage.getItem("expensesData")) || [];
@@ -113,7 +104,6 @@ function initExpenseTracker() {
   const searchInput = document.getElementById("expense-search");
   const cancelBtn = document.getElementById("expense-cancel-btn");
 
-  // Element Summary
   const elIncome = document.getElementById("total-income");
   const elExpense = document.getElementById("total-expense");
   const elBalance = document.getElementById("total-balance");
@@ -131,11 +121,12 @@ function initExpenseTracker() {
       filtered.forEach((exp) => {
         const isIncome = exp.type === "Pemasukan";
         const div = document.createElement("div");
-        div.className =
-          "flex justify-between items-center p-3 border rounded-lg bg-gray-50 hover:bg-gray-100";
+        div.className = "flex justify-between items-center p-3 border rounded-lg bg-gray-50 hover:bg-gray-100";
+        // . Menambahkan tag <h3 class="text-base"> agar terdeteksi semantik, 
+        // dan aria-label pada button ubah/hapus karena hanya berisi icon
         div.innerHTML = `
                     <div>
-                        <h4 class="font-bold text-gray-800">${exp.title}</h4>
+                        <h3 class="font-bold text-gray-800 text-base m-0">${exp.title}</h3>
                         <p class="text-xs text-gray-500">${exp.date} &bull; ${exp.category}</p>
                     </div>
                     <div class="flex items-center gap-4">
@@ -143,8 +134,8 @@ function initExpenseTracker() {
                             ${isIncome ? "+" : "-"} Rp ${parseInt(exp.amount).toLocaleString("id-ID")}
                         </span>
                         <div class="flex gap-2">
-                            <button class="text-blue-500 hover:text-blue-700 edit-btn" data-id="${exp.id}"><i class="ti ti-pencil"></i></button>
-                            <button class="text-red-500 hover:text-red-700 del-btn" data-id="${exp.id}"><i class="ti ti-trash"></i></button>
+                            <button class="text-blue-500 hover:text-blue-700 edit-btn" data-id="${exp.id}" aria-label="Ubah transaksi"><i class="ti ti-pencil" aria-hidden="true"></i></button>
+                            <button class="text-red-500 hover:text-red-700 del-btn" data-id="${exp.id}" aria-label="Hapus transaksi"><i class="ti ti-trash" aria-hidden="true"></i></button>
                         </div>
                     </div>
                 `;
@@ -156,12 +147,8 @@ function initExpenseTracker() {
   }
 
   function updateSummary() {
-    const income = expenses
-      .filter((e) => e.type === "Pemasukan")
-      .reduce((acc, curr) => acc + Number(curr.amount), 0);
-    const expense = expenses
-      .filter((e) => e.type === "Pengeluaran")
-      .reduce((acc, curr) => acc + Number(curr.amount), 0);
+    const income = expenses.filter((e) => e.type === "Pemasukan").reduce((acc, curr) => acc + Number(curr.amount), 0);
+    const expense = expenses.filter((e) => e.type === "Pengeluaran").reduce((acc, curr) => acc + Number(curr.amount), 0);
     const balance = income - expense;
 
     elIncome.innerText = `Rp ${income.toLocaleString("id-ID")}`;
@@ -185,9 +172,7 @@ function initExpenseTracker() {
     };
 
     if (editModeId) {
-      expenses = expenses.map((ex) =>
-        ex.id === editModeId ? expenseData : ex,
-      );
+      expenses = expenses.map((ex) => (ex.id === editModeId ? expenseData : ex));
       resetForm();
     } else {
       expenses.push(expenseData);
@@ -221,8 +206,7 @@ function initExpenseTracker() {
           document.getElementById("expense-amount").value = exp.amount;
           document.getElementById("expense-type").value = exp.type;
           document.getElementById("expense-date").value = exp.date;
-          document.getElementById("expense-form-title").innerText =
-            "Ubah Transaksi";
+          document.getElementById("expense-form-title").innerText = "Ubah Transaksi";
           cancelBtn.classList.remove("hidden");
         }
       });
@@ -235,8 +219,7 @@ function initExpenseTracker() {
   function resetForm() {
     editModeId = null;
     form.reset();
-    document.getElementById("expense-form-title").innerText =
-      "Tambah Transaksi";
+    document.getElementById("expense-form-title").innerText = "Tambah Transaksi";
     cancelBtn.classList.add("hidden");
   }
 
@@ -245,7 +228,6 @@ function initExpenseTracker() {
 
 /**
  * 3. FITUR BOOKMARK MANAGER
- * CRUD link, validasi Regex, localStorage (Key: bookmarksData)
  */
 function initBookmarkManager() {
   let bookmarks = JSON.parse(localStorage.getItem("bookmarksData")) || [];
@@ -269,8 +251,7 @@ function initBookmarkManager() {
       emptyState.classList.add("hidden");
       filtered.forEach((bm) => {
         const div = document.createElement("div");
-        div.className =
-          "border rounded-xl p-4 bg-gray-50 shadow-sm flex flex-col justify-between";
+        div.className = "border rounded-xl p-4 bg-gray-50 shadow-sm flex flex-col justify-between";
         div.innerHTML = `
                     <div>
                         <div class="flex justify-between items-start">
@@ -345,8 +326,7 @@ function initBookmarkManager() {
           document.getElementById("bookmark-url").value = bm.url;
           document.getElementById("bookmark-category").value = bm.category;
           document.getElementById("bookmark-note").value = bm.note;
-          document.getElementById("bookmark-form-title").innerText =
-            "Ubah Bookmark";
+          document.getElementById("bookmark-form-title").innerText = "Ubah Bookmark";
           cancelBtn.classList.remove("hidden");
         }
       });
@@ -359,8 +339,7 @@ function initBookmarkManager() {
   function resetForm() {
     editBookmarkId = null;
     form.reset();
-    document.getElementById("bookmark-form-title").innerText =
-      "Tambah Bookmark";
+    document.getElementById("bookmark-form-title").innerText = "Tambah Bookmark";
     cancelBtn.classList.add("hidden");
   }
 
@@ -369,57 +348,24 @@ function initBookmarkManager() {
 
 /**
  * 4. FITUR KUIS INTERAKTIF
- * Array of object, state, dan localStorage (Key: quizHighScoreData)
  */
 function initQuizApp() {
   const questions = [
-    {
-      q: "Apa kepanjangan dari HTML?",
-      options: [
-        "Hypertext Machine Language",
-        "Hypertext Markup Language",
-        "Hyperloop Markup Language",
-        "Helicopter Terminal Motor Language",
-      ],
-      ans: 1,
-    },
-    {
-      q: "Simbol apa yang digunakan untuk selector id di CSS?",
-      options: [".", "#", "*", "@"],
-      ans: 1,
-    },
-    {
-      q: "Manakah yang bukan merupakan tipe data di JavaScript?",
-      options: ["String", "Boolean", "Float", "Undefined"],
-      ans: 2,
-    },
-    {
-      q: "Fungsi DOM untuk mendapatkan elemen HTML berdasarkan ID-nya adalah:",
-      options: [
-        "getElementByID()",
-        "querySelector()",
-        "getElementById()",
-        "getElementsById()",
-      ],
-      ans: 2,
-    },
-    {
-      q: "Atribut HTML untuk menentukan tautan tujuan pada tag <a> adalah:",
-      options: ["href", "src", "link", "target"],
-      ans: 0,
-    },
+    { q: "Apa kepanjangan dari HTML?", options: ["Hypertext Machine Language", "Hypertext Markup Language", "Hyperloop Markup Language", "Helicopter Terminal Motor Language"], ans: 1 },
+    { q: "Simbol apa yang digunakan untuk selector id di CSS?", options: [".", "#", "*", "@"], ans: 1 },
+    { q: "Manakah yang bukan merupakan tipe data di JavaScript?", options: ["String", "Boolean", "Float", "Undefined"], ans: 2 },
+    { q: "Fungsi DOM untuk mendapatkan elemen HTML berdasarkan ID-nya adalah:", options: ["getElementByID()", "querySelector()", "getElementById()", "getElementsById()"], ans: 2 },
+    { q: "Atribut HTML untuk menentukan tautan tujuan pada tag <a> adalah:", options: ["href", "src", "link", "target"], ans: 0 },
   ];
 
   let currentQ = 0;
   let score = 0;
   let highScore = parseInt(localStorage.getItem("quizHighScoreData")) || 0;
 
-  // Elements
   const startScreen = document.getElementById("quiz-start-screen");
   const qScreen = document.getElementById("quiz-question-screen");
   const resScreen = document.getElementById("quiz-result-screen");
   const elHighScore = document.getElementById("quiz-high-score");
-
   const elQuestion = document.getElementById("quiz-question-text");
   const elOptions = document.getElementById("quiz-options");
   const elProgress = document.getElementById("quiz-progress");
@@ -448,8 +394,7 @@ function initQuizApp() {
 
     qData.options.forEach((opt, index) => {
       const btn = document.createElement("button");
-      btn.className =
-        "w-full text-left p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition font-medium border-gray-200 outline-none focus:ring-2 focus:ring-blue-400";
+      btn.className = "w-full text-left p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition font-medium border-gray-200 outline-none focus:ring-2 focus:ring-blue-400";
       btn.innerText = opt;
       btn.addEventListener("click", () => selectAnswer(btn, index, qData.ans));
       elOptions.appendChild(btn);
@@ -457,24 +402,17 @@ function initQuizApp() {
   }
 
   function selectAnswer(selectedBtn, selectedIdx, correctIdx) {
-    // Disable semua tombol
     const buttons = elOptions.querySelectorAll("button");
     buttons.forEach((btn) => (btn.disabled = true));
 
     if (selectedIdx === correctIdx) {
-      selectedBtn.classList.add(
-        "bg-green-100",
-        "border-green-500",
-        "text-green-800",
-      );
+      selectedBtn.classList.add("bg-green-100", "border-green-500", "text-green-800");
       score++;
       elCurrScore.innerText = score;
     } else {
       selectedBtn.classList.add("bg-red-100", "border-red-500", "text-red-800");
-      // Tampilkan yang benar
       buttons[correctIdx].classList.add("bg-green-100", "border-green-500");
     }
-
     btnNext.classList.remove("hidden");
   }
 
@@ -490,9 +428,7 @@ function initQuizApp() {
   function finishQuiz() {
     qScreen.classList.add("hidden-panel");
     resScreen.classList.remove("hidden-panel");
-
-    document.getElementById("final-score").innerText =
-      `${score} / ${questions.length}`;
+    document.getElementById("final-score").innerText = `${score} / ${questions.length}`;
 
     if (score > highScore) {
       highScore = score;
