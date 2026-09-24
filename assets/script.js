@@ -69,13 +69,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   window.addEventListener("popstate", (e) => {
-    if (e.state && e.state.tab) {
-      activateTab(e.state.tab, false);
-    } else {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab") || "expense";
-      activateTab(tabMap[tabParam] || "expense-panel", false);
-    }
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab") || "expense";
+    const targetPanel = (e.state && e.state.tab) ? e.state.tab : (tabMap[tabParam] || "expense-panel");
+    activateTab(targetPanel, false);
   });
 
   const params = new URLSearchParams(window.location.search);
@@ -105,13 +102,11 @@ function initGlobalModals() {
     deleteModal.classList.remove("flex");
     confirmDeleteCallback = null;
   });
-  document
-    .getElementById("confirm-delete-btn")
-    .addEventListener("click", () => {
-      if (confirmDeleteCallback) confirmDeleteCallback();
-      deleteModal.classList.add("hidden");
-      deleteModal.classList.remove("flex");
-    });
+  document.getElementById("confirm-delete-btn").addEventListener("click", () => {
+    if (confirmDeleteCallback) confirmDeleteCallback();
+    deleteModal.classList.add("hidden");
+    deleteModal.classList.remove("flex");
+  });
 }
 
 function requestDelete(callback) {
@@ -122,62 +117,58 @@ function requestDelete(callback) {
 }
 
 /**
+ * REFACTOR: Helper Generik untuk Modal agar tidak ada duplikasi kode
+ */
+function setupModalController(modalId, openBtnId, cancelBtnId, formId, titleId, defaultTitle) {
+  const modal = document.getElementById(modalId);
+  const form = document.getElementById(formId);
+  const titleEl = document.getElementById(titleId);
+
+  function open(isEdit = false) {
+    titleEl.innerText = isEdit ? `Ubah ${defaultTitle}` : `Tambah ${defaultTitle}`;
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  }
+
+  function close() {
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+    form.reset();
+  }
+
+  document.getElementById(openBtnId).addEventListener("click", () => open(false));
+  document.getElementById(cancelBtnId).addEventListener("click", close);
+
+  return { open, close };
+}
+
+/**
  * 2. FITUR PENCATATAN PENGELUARAN HARIAN (Expense Tracker)
  */
 function initExpenseTracker() {
   let expenses = JSON.parse(localStorage.getItem("expensesData")) || [];
   let editModeId = null;
 
-  const modal = document.getElementById("expense-modal");
-  const form = document.getElementById("expense-form");
+  const modalCtrl = setupModalController("expense-modal", "btn-add-expense", "expense-cancel-btn", "expense-form", "expense-form-title", "Transaksi");
   const listContainer = document.getElementById("expense-list");
   const emptyState = document.getElementById("expense-empty");
-
-  // Fitur Sort, Filter & Search
   const searchInput = document.getElementById("expense-search");
   const filterSelect = document.getElementById("expense-filter");
   const sortSelect = document.getElementById("expense-sort");
-
-  function openModal(isEdit = false) {
-    document.getElementById("expense-form-title").innerText = isEdit
-      ? "Ubah Transaksi"
-      : "Tambah Transaksi";
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  }
-
-  function closeModal() {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-    editModeId = null;
-    form.reset();
-  }
-
-  document
-    .getElementById("btn-add-expense")
-    .addEventListener("click", () => openModal(false));
-  document
-    .getElementById("expense-cancel-btn")
-    .addEventListener("click", closeModal);
+  const form = document.getElementById("expense-form");
 
   function renderExpenses() {
     listContainer.innerHTML = "";
-
-    // Ambil value dari filter control
     const searchText = searchInput.value.toLowerCase();
     const filterType = filterSelect.value;
     const sortType = sortSelect.value;
 
-    // Filter Logic
     let filtered = expenses.filter((e) => {
-      const matchSearch =
-        e.title.toLowerCase().includes(searchText) ||
-        e.category.toLowerCase().includes(searchText);
+      const matchSearch = e.title.toLowerCase().includes(searchText) || e.category.toLowerCase().includes(searchText);
       const matchType = filterType === "all" || e.type === filterType;
       return matchSearch && matchType;
     });
 
-    // Sort Logic
     filtered.sort((a, b) => {
       if (sortType === "newest") return new Date(b.date) - new Date(a.date);
       if (sortType === "oldest") return new Date(a.date) - new Date(b.date);
@@ -193,9 +184,7 @@ function initExpenseTracker() {
       filtered.forEach((exp) => {
         const isIncome = exp.type === "Pemasukan";
         const div = document.createElement("div");
-        div.className =
-          "flex justify-between items-center p-4 border rounded-lg bg-gray-50 hover:bg-gray-100";
-        // PERBAIKAN: Gunakan escapeHTML() untuk render data user demi mencegah XSS
+        div.className = "flex justify-between items-center p-4 border rounded-lg bg-gray-50 hover:bg-gray-100";
         div.innerHTML = `
           <div>
             <h3 class="font-bold text-gray-800 text-base m-0">${escapeHTML(exp.title)}</h3>
@@ -219,54 +208,45 @@ function initExpenseTracker() {
   }
 
   function updateSummary() {
-    const income = expenses
-      .filter((e) => e.type === "Pemasukan")
-      .reduce((acc, curr) => acc + Number(curr.amount), 0);
-    const expense = expenses
-      .filter((e) => e.type === "Pengeluaran")
-      .reduce((acc, curr) => acc + Number(curr.amount), 0);
-    document.getElementById("total-income").innerText =
-      `Rp ${income.toLocaleString("id-ID")}`;
-    document.getElementById("total-expense").innerText =
-      `Rp ${expense.toLocaleString("id-ID")}`;
-    document.getElementById("total-balance").innerText =
-      `Rp ${(income - expense).toLocaleString("id-ID")}`;
+    const income = expenses.filter((e) => e.type === "Pemasukan").reduce((acc, curr) => acc + Number(curr.amount), 0);
+    const expense = expenses.filter((e) => e.type === "Pengeluaran").reduce((acc, curr) => acc + Number(curr.amount), 0);
+    document.getElementById("total-income").innerText = `Rp ${income.toLocaleString("id-ID")}`;
+    document.getElementById("total-expense").innerText = `Rp ${expense.toLocaleString("id-ID")}`;
+    document.getElementById("total-balance").innerText = `Rp ${(income - expense).toLocaleString("id-ID")}`;
   }
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-
-    // PERBAIKAN: JS Eksplisit validasi requirement
     const title = document.getElementById("expense-title").value.trim();
     const amount = Number(document.getElementById("expense-amount").value);
+    const date = document.getElementById("expense-date").value;
 
     if (!title) return alert("Judul tidak boleh kosong!");
-    if (isNaN(amount) || amount <= 0)
-      return alert("Jumlah harus berupa angka lebih dari 0!");
+    if (isNaN(amount) || amount <= 0) return alert("Jumlah harus berupa angka lebih dari 0!");
+    // Validasi Tanggal Eksplisit JS
+    if (!date) return alert("Tanggal transaksi wajib diisi!");
 
     const expenseData = {
       id: editModeId || Date.now().toString(),
-      title: title,
+      title,
       category: document.getElementById("expense-category").value.trim(),
-      amount: amount,
+      amount,
       type: document.getElementById("expense-type").value,
-      date: document.getElementById("expense-date").value,
+      date,
     };
 
     if (editModeId) {
-      expenses = expenses.map((ex) =>
-        ex.id === editModeId ? expenseData : ex,
-      );
+      expenses = expenses.map((ex) => (ex.id === editModeId ? expenseData : ex));
+      editModeId = null;
     } else {
       expenses.push(expenseData);
     }
     localStorage.setItem("expensesData", JSON.stringify(expenses));
     renderExpenses();
-    closeModal();
+    modalCtrl.close();
   });
 
   function attachExpenseListeners() {
-    // PERBAIKAN: Scope selector khusus untuk wadah listContainer
     listContainer.querySelectorAll(".del-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const id = e.currentTarget.dataset.id;
@@ -289,13 +269,13 @@ function initExpenseTracker() {
           document.getElementById("expense-amount").value = exp.amount;
           document.getElementById("expense-type").value = exp.type;
           document.getElementById("expense-date").value = exp.date;
-          openModal(true);
+          modalCtrl.open(true);
         }
       });
     });
   }
 
-  // Trigger Renders
+  document.getElementById("btn-add-expense").addEventListener("click", () => { editModeId = null; });
   searchInput.addEventListener("input", renderExpenses);
   filterSelect.addEventListener("change", renderExpenses);
   sortSelect.addEventListener("change", renderExpenses);
@@ -310,39 +290,14 @@ function initBookmarkManager() {
   let bookmarks = JSON.parse(localStorage.getItem("bookmarksData")) || [];
   let editBookmarkId = null;
 
-  const modal = document.getElementById("bookmark-modal");
-  const form = document.getElementById("bookmark-form");
+  const modalCtrl = setupModalController("bookmark-modal", "btn-add-bookmark", "bookmark-cancel-btn", "bookmark-form", "bookmark-form-title", "Bookmark");
   const listContainer = document.getElementById("bookmark-list");
   const emptyState = document.getElementById("bookmark-empty");
-
-  // Sort, Filter, & Search
   const searchInput = document.getElementById("bookmark-search");
   const filterSelect = document.getElementById("bookmark-filter");
   const sortSelect = document.getElementById("bookmark-sort");
+  const form = document.getElementById("bookmark-form");
 
-  function openModal(isEdit = false) {
-    document.getElementById("bookmark-form-title").innerText = isEdit
-      ? "Ubah Bookmark"
-      : "Tambah Bookmark";
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  }
-
-  function closeModal() {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-    editBookmarkId = null;
-    form.reset();
-  }
-
-  document
-    .getElementById("btn-add-bookmark")
-    .addEventListener("click", () => openModal(false));
-  document
-    .getElementById("bookmark-cancel-btn")
-    .addEventListener("click", closeModal);
-
-  // Perbarui kategori dinamis
   function updateCategoryFilter() {
     const currentVal = filterSelect.value;
     const categories = [...new Set(bookmarks.map((b) => b.category))];
@@ -369,18 +324,14 @@ function initBookmarkManager() {
     const sortType = sortSelect.value;
 
     let filtered = bookmarks.filter((b) => {
-      const matchSearch =
-        b.title.toLowerCase().includes(searchText) ||
-        b.url.toLowerCase().includes(searchText);
-      const matchCategory =
-        filterCategory === "all" || b.category === filterCategory;
+      const matchSearch = b.title.toLowerCase().includes(searchText) || b.url.toLowerCase().includes(searchText);
+      const matchCategory = filterCategory === "all" || b.category === filterCategory;
       return matchSearch && matchCategory;
     });
 
     filtered.sort((a, b) => {
       if (sortType === "az") return a.title.localeCompare(b.title);
       if (sortType === "za") return b.title.localeCompare(a.title);
-      // id berdasarkan timestamp jadi bisa digunakan untuk terbaru/terlama
       if (sortType === "newest") return Number(b.id) - Number(a.id);
       if (sortType === "oldest") return Number(a.id) - Number(b.id);
       return 0;
@@ -392,9 +343,7 @@ function initBookmarkManager() {
       emptyState.classList.add("hidden");
       filtered.forEach((bm) => {
         const div = document.createElement("div");
-        div.className =
-          "border rounded-xl p-4 bg-gray-50 shadow-sm flex flex-col justify-between";
-        // PERBAIKAN: Sanitasi output
+        div.className = "border rounded-xl p-4 bg-gray-50 shadow-sm flex flex-col justify-between";
         div.innerHTML = `
           <div>
             <div class="flex justify-between items-start mb-2">
@@ -417,19 +366,16 @@ function initBookmarkManager() {
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-
-    // PERBAIKAN: Validasi JS eksplisit
     const title = document.getElementById("bookmark-title").value.trim();
     const urlInput = document.getElementById("bookmark-url").value.trim();
 
     if (!title) return alert("Judul tidak boleh kosong!");
     const urlRegex = /^(https?:\/\/)/i;
-    if (!urlRegex.test(urlInput))
-      return alert("URL harus diawali dengan http:// atau https://");
+    if (!urlRegex.test(urlInput)) return alert("URL harus diawali dengan http:// atau https://");
 
     const data = {
       id: editBookmarkId || Date.now().toString(),
-      title: title,
+      title,
       url: urlInput,
       category: document.getElementById("bookmark-category-input").value.trim(),
       note: document.getElementById("bookmark-note").value.trim(),
@@ -437,12 +383,13 @@ function initBookmarkManager() {
 
     if (editBookmarkId) {
       bookmarks = bookmarks.map((b) => (b.id === editBookmarkId ? data : b));
+      editBookmarkId = null;
     } else {
       bookmarks.push(data);
     }
     localStorage.setItem("bookmarksData", JSON.stringify(bookmarks));
     renderBookmarks();
-    closeModal();
+    modalCtrl.close();
   });
 
   function attachBookmarkListeners() {
@@ -464,15 +411,15 @@ function initBookmarkManager() {
           editBookmarkId = bm.id;
           document.getElementById("bookmark-title").value = bm.title;
           document.getElementById("bookmark-url").value = bm.url;
-          document.getElementById("bookmark-category-input").value =
-            bm.category;
+          document.getElementById("bookmark-category-input").value = bm.category;
           document.getElementById("bookmark-note").value = bm.note;
-          openModal(true);
+          modalCtrl.open(true);
         }
       });
     });
   }
 
+  document.getElementById("btn-add-bookmark").addEventListener("click", () => { editBookmarkId = null; });
   searchInput.addEventListener("input", renderBookmarks);
   filterSelect.addEventListener("change", renderBookmarks);
   sortSelect.addEventListener("change", renderBookmarks);
@@ -481,47 +428,18 @@ function initBookmarkManager() {
 }
 
 /**
- * 4. FITUR KUIS INTERAKTIF
+ * 4. FITUR KUIS INTERAKTIF (Dengan Pengacakan Soal & Opsi - Fisher-Yates Shuffle)
  */
 function initQuizApp() {
-  const questions = [
-    {
-      q: "Apa kepanjangan dari HTML?",
-      options: [
-        "Hypertext Machine Language",
-        "Hypertext Markup Language",
-        "Hyperloop Markup Language",
-        "Helicopter Terminal Motor Language",
-      ],
-      ans: 1,
-    },
-    {
-      q: "Simbol apa yang digunakan untuk selector id di CSS?",
-      options: [".", "#", "*", "@"],
-      ans: 1,
-    },
-    {
-      q: "Manakah yang bukan merupakan tipe data di JavaScript?",
-      options: ["String", "Boolean", "Float", "Undefined"],
-      ans: 2,
-    },
-    {
-      q: "Fungsi DOM untuk mendapatkan elemen HTML berdasarkan ID-nya adalah:",
-      options: [
-        "getElementByID()",
-        "querySelector()",
-        "getElementById()",
-        "getElementsById()",
-      ],
-      ans: 2,
-    },
-    {
-      q: "Atribut HTML untuk menentukan tautan tujuan pada tag <a> adalah:",
-      options: ["href", "src", "link", "target"],
-      ans: 0,
-    },
+  const originalQuestions = [
+    { q: "Apa kepanjangan dari HTML?", options: ["Hypertext Machine Language", "Hypertext Markup Language", "Hyperloop Markup Language", "Helicopter Terminal Motor Language"], ansStr: "Hypertext Markup Language" },
+    { q: "Simbol apa yang digunakan untuk selector id di CSS?", options: [".", "#", "*", "@"], ansStr: "#" },
+    { q: "Manakah yang bukan merupakan tipe data di JavaScript?", options: ["String", "Boolean", "Float", "Undefined"], ansStr: "Float" },
+    { q: "Fungsi DOM untuk mendapatkan elemen HTML berdasarkan ID-nya adalah:", options: ["getElementByID()", "querySelector()", "getElementById()", "getElementsById()"], ansStr: "getElementById()" },
+    { q: "Atribut HTML untuk menentukan tautan tujuan pada tag <a> adalah:", options: ["href", "src", "link", "target"], ansStr: "href" },
   ];
 
+  let questions = [];
   let currentQ = 0;
   let score = 0;
   let highScore = parseInt(localStorage.getItem("quizHighScoreData")) || 0;
@@ -538,9 +456,29 @@ function initQuizApp() {
 
   elHighScore.innerText = highScore;
 
+  // Algoritma Fisher-Yates untuk mengacak array
+  function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
   document.getElementById("start-quiz-btn").addEventListener("click", () => {
     currentQ = 0;
     score = 0;
+    // Acak urutan soal dan acak pilihan opsi jawaban di setiap soal
+    questions = shuffleArray(originalQuestions).map((item) => {
+      const shuffledOptions = shuffleArray(item.options);
+      return {
+        q: item.q,
+        options: shuffledOptions,
+        ans: shuffledOptions.indexOf(item.ansStr),
+      };
+    });
+
     startScreen.classList.add("hidden-panel");
     resScreen.classList.add("hidden-panel");
     qScreen.classList.remove("hidden-panel");
@@ -558,9 +496,8 @@ function initQuizApp() {
 
     qData.options.forEach((opt, index) => {
       const btn = document.createElement("button");
-      btn.className =
-        "w-full text-left p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition font-medium border-gray-200 outline-none focus:ring-2 focus:ring-blue-400";
-      btn.innerText = opt; // aman dari XSS karena memakai innerText
+      btn.className = "w-full text-left p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition font-medium border-gray-200 outline-none focus:ring-2 focus:ring-blue-400";
+      btn.innerText = opt;
       btn.addEventListener("click", () => selectAnswer(btn, index, qData.ans));
       elOptions.appendChild(btn);
     });
@@ -571,11 +508,7 @@ function initQuizApp() {
     buttons.forEach((btn) => (btn.disabled = true));
 
     if (selectedIdx === correctIdx) {
-      selectedBtn.classList.add(
-        "bg-green-100",
-        "border-green-500",
-        "text-green-800",
-      );
+      selectedBtn.classList.add("bg-green-100", "border-green-500", "text-green-800");
       score++;
       elCurrScore.innerText = score;
     } else {
@@ -597,8 +530,7 @@ function initQuizApp() {
   function finishQuiz() {
     qScreen.classList.add("hidden-panel");
     resScreen.classList.remove("hidden-panel");
-    document.getElementById("final-score").innerText =
-      `${score} / ${questions.length}`;
+    document.getElementById("final-score").innerText = `${score} / ${questions.length}`;
 
     if (score > highScore) {
       highScore = score;
