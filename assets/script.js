@@ -1,16 +1,22 @@
 /**
  * 1. INTEGRASI TAB & PROYEK
- * Mengelola navigasi tab, path URL, dan menyimpan state terakhir ke localStorage.
+ * Mengelola navigasi tab menggunakan Query Parameter (?tab=...) agar aman dari 404 di Netlify.
  */
 document.addEventListener("DOMContentLoaded", () => {
     const tabBtns = document.querySelectorAll(".tab-btn");
     const tabPanels = document.querySelectorAll(".tab-panel");
     
-    // Peta ID panel ke path URL
-    const pathMap = {
-        "expense-panel": "/",
-        "bookmark-panel": "/bookmark",
-        "quiz-panel": "/quizapp"
+    // Pemetaan ID panel yang lebih bersih untuk URL (opsional, agar URL lebih rapi)
+    const tabMap = {
+        "expense": "expense-panel",
+        "bookmark": "bookmark-panel",
+        "quiz": "quiz-panel"
+    };
+    // Balikan map untuk mendapatkan nama param dari ID panel
+    const reverseTabMap = {
+        "expense-panel": "expense",
+        "bookmark-panel": "bookmark",
+        "quiz-panel": "quiz"
     };
 
     function activateTab(targetId, updateHistory = true) {
@@ -37,11 +43,15 @@ document.addEventListener("DOMContentLoaded", () => {
         // Simpan state ke localStorage
         localStorage.setItem("activeTab", targetId);
 
-        // Ubah URL di address bar tanpa reload
+        // Ubah URL menggunakan Query Parameter (?tab=nama-tab)
         if (updateHistory) {
-            const newPath = pathMap[targetId] || "/";
-            if (window.location.pathname !== newPath) {
-                window.history.pushState({ tab: targetId }, "", newPath);
+            const tabParam = reverseTabMap[targetId] || "expense";
+            const url = new URL(window.location.href);
+            url.searchParams.set("tab", tabParam);
+            
+            // Cek apakah parameter sudah sama agar tidak duplikat di history
+            if (window.location.search !== `?tab=${tabParam}`) {
+                window.history.pushState({ tab: targetId }, "", url);
             }
         }
     }
@@ -57,20 +67,28 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.state && e.state.tab) {
             activateTab(e.state.tab, false);
         } else {
-            activateTab("expense-panel", false);
+            // Fallback jika tidak ada state, baca dari URL
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get("tab");
+            activateTab(tabMap[tabParam] || "expense-panel", false);
         }
     });
 
-    // Tentukan tab aktif saat halaman dimuat (berdasarkan URL path atau localStorage)
-    const currentPath = window.location.pathname;
-    let initialTab = localStorage.getItem("activeTab") || "expense-panel";
+    // Inisialisasi tab aktif saat muat halaman
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
     
-    // Jika path URL cocok dengan salah satu fitur, gunakan itu sebagai tab awal
-    for (const [id, path] of Object.entries(pathMap)) {
-        if (path === currentPath && currentPath !== "/") {
-            initialTab = id;
-            break;
-        }
+    // Prioritas: URL Parameter > LocalStorage > Default (Expense)
+    let initialTab = "expense-panel";
+    if (tabParam && tabMap[tabParam]) {
+        initialTab = tabMap[tabParam];
+    } else {
+        initialTab = localStorage.getItem("activeTab") || "expense-panel";
+        // Perbarui URL agar sesuai dengan localStorage jika belum ada parameter
+        const initialParam = reverseTabMap[initialTab];
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", initialParam);
+        window.history.replaceState({ tab: initialTab }, "", url);
     }
     
     activateTab(initialTab, false);
@@ -87,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
  * CRUD, filter, kalkulasi, localStorage (Key: expensesData)
  */
 function initExpenseTracker() {
-    let expenses = JSON.parse(localStorage.getItem('expensesData')) || [];
+    let expenses = JSON.parse(localStorage.getItem('expensesData')) || []; 
     let editModeId = null;
 
     const form = document.getElementById('expense-form');
@@ -146,7 +164,7 @@ function initExpenseTracker() {
     }
 
     function saveToLocal() {
-        localStorage.setItem('expensesData', JSON.stringify(expenses));
+        localStorage.setItem('expensesData', JSON.stringify(expenses)); 
     }
 
     form.addEventListener('submit', (e) => {
@@ -220,7 +238,7 @@ function initExpenseTracker() {
  * CRUD link, validasi Regex, localStorage (Key: bookmarksData)
  */
 function initBookmarkManager() {
-    let bookmarks = JSON.parse(localStorage.getItem('bookmarksData')) || [];
+    let bookmarks = JSON.parse(localStorage.getItem('bookmarksData')) || []; 
     let editBookmarkId = null;
 
     const form = document.getElementById('bookmark-form');
