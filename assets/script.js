@@ -32,6 +32,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Simpan state ke localStorage[cite: 1]
         localStorage.setItem("activeTab", targetId);
+
+        history.replaceState(null, null, '#${targetId}');
     }
 
     tabBtns.forEach(btn => {
