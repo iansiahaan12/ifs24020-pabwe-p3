@@ -24,12 +24,11 @@
       <h1 class="text-2xl font-bold py-4 text-blue-600 flex items-center gap-2">
         <i class="ti ti-apps" aria-hidden="true"></i> ToolKit Web
       </h1>
-      <nav aria-label="Navigasi Fitur" class="flex overflow-x-auto gap-4 border-b border-gray-200" id="tab-nav">
+      <nav role="tablist" aria-label="Navigasi Fitur" class="flex overflow-x-auto gap-4 border-b border-gray-200" id="tab-nav">
         <!-- Tombol tab di-handle oleh JS -->
-        <button data-target="expense-panel" class="tab-btn active-tab border-b-2 border-blue-600 text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Pengeluaran</button>
-        <button data-target="bookmark-panel" class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Bookmark</button>
-        <button data-target="quiz-panel" class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Kuis</button>
-      </nav>
+        <button role="tab" aria-controls="expense-panel" aria-selected="true" data-target="expense-panel" class="tab-btn active-tab border-b-2 border-blue-600 text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Pengeluaran</button>
+        <button role="tab" aria-controls="bookmark-panel" aria-selected="false" data-target="bookmark-panel" class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Bookmark</button>
+        <button role="tab" aria-controls="quiz-panel" aria-selected="false" data-target="quiz-panel" class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Kuis</button>      </nav>
     </div>
   </header>
 
@@ -37,7 +36,7 @@
   <main class="max-w-5xl mx-auto px-4 pb-12">
     
     <!-- PANEL 1: EXPENSE TRACKER -->
-    <section id="expense-panel" class="tab-panel">
+    <section id="expense-panel" role="tabpanel" class="tab-panel">
       <!-- . Mengganti <h3> pada nilai uang menjadi <p> agar tidak merusak hierarki heading[cite: 7] -->
       <div class="grid md:grid-cols-3 gap-6 mb-6">
         <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
@@ -111,7 +110,7 @@
     </section>
 
     <!-- PANEL 2: BOOKMARK MANAGER -->
-    <section id="bookmark-panel" class="tab-panel hidden-panel">
+    <section id="bookmark-panel" role="tabpanel" class="tab-panel hidden-panel">
       <div class="grid md:grid-cols-3 gap-6">
         <div class="md:col-span-1">
           <form id="bookmark-form" class="bg-white p-5 rounded-xl shadow-sm">
@@ -158,7 +157,7 @@
     </section>
 
     <!-- PANEL 3: KUIS INTERAKTIF -->
-    <section id="quiz-panel" class="tab-panel hidden-panel bg-white p-8 rounded-xl shadow-sm max-w-2xl mx-auto text-center">
+    <section id="quiz-panel" role="tabpanel" class="tab-panel hidden-panel bg-white p-8 rounded-xl shadow-sm max-w-2xl mx-auto text-center">
       
       <!-- Start Screen -->
       <div id="quiz-start-screen">
