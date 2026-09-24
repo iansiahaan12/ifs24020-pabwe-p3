@@ -1,7 +1,15 @@
 /**
- * =======================================================
+ * Helper Keamanan: Cegah serangan XSS saat merender innerHTML dengan user data
+ */
+function escapeHTML(str) {
+  if (!str) return "";
+  return str.toString().replace(/[&<>'"]/g, (tag) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag]));
+}
+
+/**
  * 1. INTEGRASI TAB & PROYEK (Murni URL Query Parameter)
- * =======================================================
  */
 document.addEventListener("DOMContentLoaded", () => {
   const tabBtns = document.querySelectorAll(".tab-btn");
@@ -11,7 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const reverseTabMap = { "expense-panel": "expense", "bookmark-panel": "bookmark", "quiz-panel": "quiz" };
 
   function activateTab(targetId, pushState = true) {
-    // 1. Tampilkan Panel yang Benar
     tabPanels.forEach((panel) => {
       if (panel.id === targetId) {
         panel.classList.remove("hidden-panel");
@@ -20,7 +27,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // 2. Ubah UI Button dan ARIA state
     tabBtns.forEach((btn) => {
       const isSelected = btn.dataset.target === targetId;
       btn.classList.toggle("active-tab", isSelected);
@@ -31,7 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.setAttribute("aria-selected", isSelected ? "true" : "false");
     });
 
-    // 3. Update URL browser (Sesuai Kriteria Rubrik: BUKAN localStorage)
     if (pushState) {
       const tabParam = reverseTabMap[targetId] || "expense";
       const url = new URL(window.location.href);
@@ -43,14 +48,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Listener Klik Tab
   tabBtns.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      activateTab(e.target.dataset.target);
-    });
+    btn.addEventListener("click", (e) => activateTab(e.target.dataset.target));
   });
 
-  // Listener Back/Forward Browser
   window.addEventListener("popstate", (e) => {
     if (e.state && e.state.tab) {
       activateTab(e.state.tab, false);
@@ -61,42 +62,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Inisialisasi awal berdasarkan parameter di URL
   const params = new URLSearchParams(window.location.search);
   let tabParam = params.get("tab");
-  
   if (!tabParam || !tabMap[tabParam]) {
     tabParam = "expense";
     const url = new URL(window.location.href);
     url.searchParams.set("tab", tabParam);
     window.history.replaceState({ tab: tabMap[tabParam] }, "", url);
   }
-
   activateTab(tabMap[tabParam], false);
 
-  // Inisialisasi semua logika fitur
   initGlobalModals();
   initExpenseTracker();
   initBookmarkManager();
   initQuizApp();
 });
 
-
 /**
- * =======================================================
  * GLOBAL MODAL HANDLER (Hapus Data)
- * =======================================================
  */
 let confirmDeleteCallback = null;
 function initGlobalModals() {
   const deleteModal = document.getElementById("delete-modal");
-  
   document.getElementById("cancel-delete-btn").addEventListener("click", () => {
     deleteModal.classList.add("hidden");
     deleteModal.classList.remove("flex");
     confirmDeleteCallback = null;
   });
-
   document.getElementById("confirm-delete-btn").addEventListener("click", () => {
     if (confirmDeleteCallback) confirmDeleteCallback();
     deleteModal.classList.add("hidden");
@@ -111,11 +103,8 @@ function requestDelete(callback) {
   deleteModal.classList.add("flex");
 }
 
-
 /**
- * =======================================================
  * 2. FITUR PENCATATAN PENGELUARAN HARIAN (Expense Tracker)
- * =======================================================
  */
 function initExpenseTracker() {
   let expenses = JSON.parse(localStorage.getItem("expensesData")) || [];
@@ -125,14 +114,12 @@ function initExpenseTracker() {
   const form = document.getElementById("expense-form");
   const listContainer = document.getElementById("expense-list");
   const emptyState = document.getElementById("expense-empty");
+  
+  // Fitur Sort, Filter & Search
   const searchInput = document.getElementById("expense-search");
+  const filterSelect = document.getElementById("expense-filter");
+  const sortSelect = document.getElementById("expense-sort");
 
-  // Summary
-  const elIncome = document.getElementById("total-income");
-  const elExpense = document.getElementById("total-expense");
-  const elBalance = document.getElementById("total-balance");
-
-  // Modal Controllers
   function openModal(isEdit = false) {
     document.getElementById("expense-form-title").innerText = isEdit ? "Ubah Transaksi" : "Tambah Transaksi";
     modal.classList.remove("hidden");
@@ -149,10 +136,29 @@ function initExpenseTracker() {
   document.getElementById("btn-add-expense").addEventListener("click", () => openModal(false));
   document.getElementById("expense-cancel-btn").addEventListener("click", closeModal);
 
-  // Render & Logic
-  function renderExpenses(filterText = "") {
+  function renderExpenses() {
     listContainer.innerHTML = "";
-    const filtered = expenses.filter((e) => e.title.toLowerCase().includes(filterText.toLowerCase()));
+    
+    // Ambil value dari filter control
+    const searchText = searchInput.value.toLowerCase();
+    const filterType = filterSelect.value;
+    const sortType = sortSelect.value;
+
+    // Filter Logic
+    let filtered = expenses.filter((e) => {
+      const matchSearch = e.title.toLowerCase().includes(searchText) || e.category.toLowerCase().includes(searchText);
+      const matchType = filterType === "all" || e.type === filterType;
+      return matchSearch && matchType;
+    });
+
+    // Sort Logic
+    filtered.sort((a, b) => {
+      if (sortType === "newest") return new Date(b.date) - new Date(a.date);
+      if (sortType === "oldest") return new Date(a.date) - new Date(b.date);
+      if (sortType === "highest") return Number(b.amount) - Number(a.amount);
+      if (sortType === "lowest") return Number(a.amount) - Number(b.amount);
+      return 0;
+    });
 
     if (filtered.length === 0) {
       emptyState.classList.remove("hidden");
@@ -162,18 +168,19 @@ function initExpenseTracker() {
         const isIncome = exp.type === "Pemasukan";
         const div = document.createElement("div");
         div.className = "flex justify-between items-center p-4 border rounded-lg bg-gray-50 hover:bg-gray-100";
+        // PERBAIKAN: Gunakan escapeHTML() untuk render data user demi mencegah XSS
         div.innerHTML = `
           <div>
-            <h3 class="font-bold text-gray-800 text-base m-0">${exp.title}</h3>
-            <p class="text-xs text-gray-500 mt-1">${exp.date} &bull; ${exp.category}</p>
+            <h3 class="font-bold text-gray-800 text-base m-0">${escapeHTML(exp.title)}</h3>
+            <p class="text-xs text-gray-500 mt-1">${escapeHTML(exp.date)} &bull; ${escapeHTML(exp.category)}</p>
           </div>
           <div class="flex items-center gap-4">
             <span class="font-bold ${isIncome ? "text-green-600" : "text-red-600"}">
               ${isIncome ? "+" : "-"} Rp ${parseInt(exp.amount).toLocaleString("id-ID")}
             </span>
             <div class="flex gap-2">
-              <button class="text-blue-500 hover:text-blue-700 edit-btn bg-blue-100 p-2 rounded" data-id="${exp.id}" aria-label="Ubah transaksi"><i class="ti ti-pencil" aria-hidden="true"></i></button>
-              <button class="text-red-500 hover:text-red-700 del-btn bg-red-100 p-2 rounded" data-id="${exp.id}" aria-label="Hapus transaksi"><i class="ti ti-trash" aria-hidden="true"></i></button>
+              <button class="text-blue-500 hover:text-blue-700 edit-btn bg-blue-100 p-2 rounded" data-id="${escapeHTML(exp.id)}" aria-label="Ubah transaksi"><i class="ti ti-pencil" aria-hidden="true"></i></button>
+              <button class="text-red-500 hover:text-red-700 del-btn bg-red-100 p-2 rounded" data-id="${escapeHTML(exp.id)}" aria-label="Hapus transaksi"><i class="ti ti-trash" aria-hidden="true"></i></button>
             </div>
           </div>
         `;
@@ -187,23 +194,26 @@ function initExpenseTracker() {
   function updateSummary() {
     const income = expenses.filter((e) => e.type === "Pemasukan").reduce((acc, curr) => acc + Number(curr.amount), 0);
     const expense = expenses.filter((e) => e.type === "Pengeluaran").reduce((acc, curr) => acc + Number(curr.amount), 0);
-    
-    elIncome.innerText = `Rp ${income.toLocaleString("id-ID")}`;
-    elExpense.innerText = `Rp ${expense.toLocaleString("id-ID")}`;
-    elBalance.innerText = `Rp ${(income - expense).toLocaleString("id-ID")}`;
-  }
-
-  function saveToLocal() {
-    localStorage.setItem("expensesData", JSON.stringify(expenses));
+    document.getElementById("total-income").innerText = `Rp ${income.toLocaleString("id-ID")}`;
+    document.getElementById("total-expense").innerText = `Rp ${expense.toLocaleString("id-ID")}`;
+    document.getElementById("total-balance").innerText = `Rp ${(income - expense).toLocaleString("id-ID")}`;
   }
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
+    
+    // PERBAIKAN: JS Eksplisit validasi requirement
+    const title = document.getElementById("expense-title").value.trim();
+    const amount = Number(document.getElementById("expense-amount").value);
+    
+    if (!title) return alert("Judul tidak boleh kosong!");
+    if (isNaN(amount) || amount <= 0) return alert("Jumlah harus berupa angka lebih dari 0!");
+
     const expenseData = {
       id: editModeId || Date.now().toString(),
-      title: document.getElementById("expense-title").value,
-      category: document.getElementById("expense-category").value,
-      amount: document.getElementById("expense-amount").value,
+      title: title,
+      category: document.getElementById("expense-category").value.trim(),
+      amount: amount,
       type: document.getElementById("expense-type").value,
       date: document.getElementById("expense-date").value,
     };
@@ -213,26 +223,25 @@ function initExpenseTracker() {
     } else {
       expenses.push(expenseData);
     }
-
-    saveToLocal();
-    renderExpenses(searchInput.value);
+    localStorage.setItem("expensesData", JSON.stringify(expenses));
+    renderExpenses();
     closeModal();
   });
 
   function attachExpenseListeners() {
-    document.querySelectorAll(".del-btn").forEach((btn) => {
+    // PERBAIKAN: Scope selector khusus untuk wadah listContainer
+    listContainer.querySelectorAll(".del-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const id = e.currentTarget.dataset.id;
-        // Panggil global delete modal
         requestDelete(() => {
           expenses = expenses.filter((ex) => ex.id !== id);
-          saveToLocal();
-          renderExpenses(searchInput.value);
+          localStorage.setItem("expensesData", JSON.stringify(expenses));
+          renderExpenses();
         });
       });
     });
 
-    document.querySelectorAll(".edit-btn").forEach((btn) => {
+    listContainer.querySelectorAll(".edit-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const id = e.currentTarget.dataset.id;
         const exp = expenses.find((ex) => ex.id === id);
@@ -249,15 +258,16 @@ function initExpenseTracker() {
     });
   }
 
-  searchInput.addEventListener("input", (e) => renderExpenses(e.target.value));
+  // Trigger Renders
+  searchInput.addEventListener("input", renderExpenses);
+  filterSelect.addEventListener("change", renderExpenses);
+  sortSelect.addEventListener("change", renderExpenses);
+  
   renderExpenses();
 }
 
-
 /**
- * =======================================================
  * 3. FITUR BOOKMARK MANAGER
- * =======================================================
  */
 function initBookmarkManager() {
   let bookmarks = JSON.parse(localStorage.getItem("bookmarksData")) || [];
@@ -267,9 +277,12 @@ function initBookmarkManager() {
   const form = document.getElementById("bookmark-form");
   const listContainer = document.getElementById("bookmark-list");
   const emptyState = document.getElementById("bookmark-empty");
+  
+  // Sort, Filter, & Search
   const searchInput = document.getElementById("bookmark-search");
+  const filterSelect = document.getElementById("bookmark-filter");
+  const sortSelect = document.getElementById("bookmark-sort");
 
-  // Modal Controllers
   function openModal(isEdit = false) {
     document.getElementById("bookmark-form-title").innerText = isEdit ? "Ubah Bookmark" : "Tambah Bookmark";
     modal.classList.remove("hidden");
@@ -286,10 +299,46 @@ function initBookmarkManager() {
   document.getElementById("btn-add-bookmark").addEventListener("click", () => openModal(false));
   document.getElementById("bookmark-cancel-btn").addEventListener("click", closeModal);
 
-  // Render & Logic
-  function renderBookmarks(filterText = "") {
+  // Perbarui kategori dinamis
+  function updateCategoryFilter() {
+    const currentVal = filterSelect.value;
+    const categories = [...new Set(bookmarks.map(b => b.category))];
+    
+    filterSelect.innerHTML = '<option value="all">Semua Kategori</option>';
+    categories.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      filterSelect.appendChild(opt);
+    });
+    
+    if(categories.includes(currentVal)) {
+      filterSelect.value = currentVal;
+    }
+  }
+
+  function renderBookmarks() {
+    updateCategoryFilter();
     listContainer.innerHTML = "";
-    const filtered = bookmarks.filter((b) => b.title.toLowerCase().includes(filterText.toLowerCase()));
+    
+    const searchText = searchInput.value.toLowerCase();
+    const filterCategory = filterSelect.value;
+    const sortType = sortSelect.value;
+
+    let filtered = bookmarks.filter((b) => {
+      const matchSearch = b.title.toLowerCase().includes(searchText) || b.url.toLowerCase().includes(searchText);
+      const matchCategory = filterCategory === "all" || b.category === filterCategory;
+      return matchSearch && matchCategory;
+    });
+
+    filtered.sort((a, b) => {
+      if (sortType === "az") return a.title.localeCompare(b.title);
+      if (sortType === "za") return b.title.localeCompare(a.title);
+      // id berdasarkan timestamp jadi bisa digunakan untuk terbaru/terlama
+      if (sortType === "newest") return Number(b.id) - Number(a.id);
+      if (sortType === "oldest") return Number(a.id) - Number(b.id);
+      return 0;
+    });
 
     if (filtered.length === 0) {
       emptyState.classList.remove("hidden");
@@ -298,18 +347,19 @@ function initBookmarkManager() {
       filtered.forEach((bm) => {
         const div = document.createElement("div");
         div.className = "border rounded-xl p-4 bg-gray-50 shadow-sm flex flex-col justify-between";
+        // PERBAIKAN: Sanitasi output
         div.innerHTML = `
           <div>
             <div class="flex justify-between items-start mb-2">
-              <a href="${bm.url}" target="_blank" rel="noopener noreferrer" class="font-bold text-indigo-700 hover:underline text-lg line-clamp-1">${bm.title}</a>
-              <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full whitespace-nowrap ml-2">${bm.category}</span>
+              <a href="${escapeHTML(bm.url)}" target="_blank" rel="noopener noreferrer" class="font-bold text-indigo-700 hover:underline text-lg line-clamp-1">${escapeHTML(bm.title)}</a>
+              <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full whitespace-nowrap ml-2">${escapeHTML(bm.category)}</span>
             </div>
-            <p class="text-xs text-gray-500 truncate">${bm.url}</p>
-            <p class="text-sm text-gray-700 mt-2 line-clamp-2">${bm.note || "-"}</p>
+            <p class="text-xs text-gray-500 truncate">${escapeHTML(bm.url)}</p>
+            <p class="text-sm text-gray-700 mt-2 line-clamp-2">${escapeHTML(bm.note) || "-"}</p>
           </div>
           <div class="flex justify-end gap-3 mt-4 border-t pt-3">
-            <button class="text-sm text-blue-600 font-medium hover:text-blue-800 edit-bm-btn" data-id="${bm.id}">Ubah</button>
-            <button class="text-sm text-red-600 font-medium hover:text-red-800 del-bm-btn" data-id="${bm.id}">Hapus</button>
+            <button class="text-sm text-blue-600 font-medium hover:text-blue-800 edit-bm-btn" data-id="${escapeHTML(bm.id)}">Ubah</button>
+            <button class="text-sm text-red-600 font-medium hover:text-red-800 del-bm-btn" data-id="${escapeHTML(bm.id)}">Hapus</button>
           </div>
         `;
         listContainer.appendChild(div);
@@ -318,26 +368,23 @@ function initBookmarkManager() {
     attachBookmarkListeners();
   }
 
-  function saveToLocal() {
-    localStorage.setItem("bookmarksData", JSON.stringify(bookmarks));
-  }
-
   form.addEventListener("submit", (e) => {
     e.preventDefault();
 
-    const urlInput = document.getElementById("bookmark-url").value;
+    // PERBAIKAN: Validasi JS eksplisit
+    const title = document.getElementById("bookmark-title").value.trim();
+    const urlInput = document.getElementById("bookmark-url").value.trim();
+    
+    if (!title) return alert("Judul tidak boleh kosong!");
     const urlRegex = /^(https?:\/\/)/i;
-    if (!urlRegex.test(urlInput)) {
-      alert("URL harus diawali dengan http:// atau https://");
-      return;
-    }
+    if (!urlRegex.test(urlInput)) return alert("URL harus diawali dengan http:// atau https://");
 
     const data = {
       id: editBookmarkId || Date.now().toString(),
-      title: document.getElementById("bookmark-title").value,
+      title: title,
       url: urlInput,
-      category: document.getElementById("bookmark-category").value,
-      note: document.getElementById("bookmark-note").value,
+      category: document.getElementById("bookmark-category-input").value.trim(),
+      note: document.getElementById("bookmark-note").value.trim(),
     };
 
     if (editBookmarkId) {
@@ -345,33 +392,31 @@ function initBookmarkManager() {
     } else {
       bookmarks.push(data);
     }
-
-    saveToLocal();
-    renderBookmarks(searchInput.value);
+    localStorage.setItem("bookmarksData", JSON.stringify(bookmarks));
+    renderBookmarks();
     closeModal();
   });
 
   function attachBookmarkListeners() {
-    document.querySelectorAll(".del-bm-btn").forEach((btn) => {
+    listContainer.querySelectorAll(".del-bm-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const id = e.target.dataset.id;
-        // Panggil global delete modal
         requestDelete(() => {
           bookmarks = bookmarks.filter((b) => b.id !== id);
-          saveToLocal();
-          renderBookmarks(searchInput.value);
+          localStorage.setItem("bookmarksData", JSON.stringify(bookmarks));
+          renderBookmarks();
         });
       });
     });
 
-    document.querySelectorAll(".edit-bm-btn").forEach((btn) => {
+    listContainer.querySelectorAll(".edit-bm-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const bm = bookmarks.find((b) => b.id === e.target.dataset.id);
         if (bm) {
           editBookmarkId = bm.id;
           document.getElementById("bookmark-title").value = bm.title;
           document.getElementById("bookmark-url").value = bm.url;
-          document.getElementById("bookmark-category").value = bm.category;
+          document.getElementById("bookmark-category-input").value = bm.category;
           document.getElementById("bookmark-note").value = bm.note;
           openModal(true);
         }
@@ -379,15 +424,15 @@ function initBookmarkManager() {
     });
   }
 
-  searchInput.addEventListener("input", (e) => renderBookmarks(e.target.value));
+  searchInput.addEventListener("input", renderBookmarks);
+  filterSelect.addEventListener("change", renderBookmarks);
+  sortSelect.addEventListener("change", renderBookmarks);
+  
   renderBookmarks();
 }
 
-
 /**
- * =======================================================
  * 4. FITUR KUIS INTERAKTIF
- * =======================================================
  */
 function initQuizApp() {
   const questions = [
@@ -435,7 +480,7 @@ function initQuizApp() {
     qData.options.forEach((opt, index) => {
       const btn = document.createElement("button");
       btn.className = "w-full text-left p-4 border rounded-lg bg-gray-50 hover:bg-gray-100 transition font-medium border-gray-200 outline-none focus:ring-2 focus:ring-blue-400";
-      btn.innerText = opt;
+      btn.innerText = opt; // aman dari XSS karena memakai innerText
       btn.addEventListener("click", () => selectAnswer(btn, index, qData.ans));
       elOptions.appendChild(btn);
     });

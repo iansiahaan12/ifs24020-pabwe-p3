@@ -25,7 +25,6 @@
         <i class="ti ti-apps" aria-hidden="true"></i> ToolKit Web
       </h1>
       <nav role="tablist" aria-label="Navigasi Fitur" class="flex overflow-x-auto gap-4 border-b border-gray-200" id="tab-nav">
-        <!-- Atribut role="tab" dipastikan hadir agar aria-selected valid -->
         <button role="tab" aria-controls="expense-panel" aria-selected="true" data-target="expense-panel" class="tab-btn active-tab border-b-2 border-blue-600 text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Pengeluaran</button>
         <button role="tab" aria-controls="bookmark-panel" aria-selected="false" data-target="bookmark-panel" class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Bookmark</button>
         <button role="tab" aria-controls="quiz-panel" aria-selected="false" data-target="quiz-panel" class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-blue-600 pb-2 px-1 font-medium whitespace-nowrap">Kuis</button>
@@ -54,11 +53,24 @@
       </div>
 
       <div class="bg-white p-5 rounded-xl shadow-sm">
-        <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
-          <h2 class="text-lg font-bold">Daftar Transaksi</h2>
-          <div class="flex items-center gap-2">
-            <input type="text" id="expense-search" aria-label="Cari transaksi" placeholder="Cari transaksi..." class="border rounded-lg p-2 text-sm w-48 outline-none">
-            <button id="btn-add-expense" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">+ Tambah</button>
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+          <h2 class="text-lg font-bold whitespace-nowrap">Daftar Transaksi</h2>
+          
+          <!-- PERBAIKAN: Penambahan Filter dan Sort untuk Expense -->
+          <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <input type="text" id="expense-search" aria-label="Cari transaksi" placeholder="Cari..." class="border rounded-lg p-2 text-sm flex-1 md:w-32 outline-none">
+            <select id="expense-filter" aria-label="Filter tipe" class="border rounded-lg p-2 text-sm outline-none">
+              <option value="all">Semua Tipe</option>
+              <option value="Pemasukan">Pemasukan</option>
+              <option value="Pengeluaran">Pengeluaran</option>
+            </select>
+            <select id="expense-sort" aria-label="Urutkan transaksi" class="border rounded-lg p-2 text-sm outline-none">
+              <option value="newest">Terbaru</option>
+              <option value="oldest">Terlama</option>
+              <option value="highest">Jumlah Terbesar</option>
+              <option value="lowest">Jumlah Terkecil</option>
+            </select>
+            <button id="btn-add-expense" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">+ Tambah</button>
           </div>
         </div>
         <div id="expense-list" class="flex flex-col gap-3 max-h-[500px] overflow-y-auto">
@@ -74,11 +86,23 @@
     <!-- PANEL 2: BOOKMARK MANAGER -->
     <section id="bookmark-panel" role="tabpanel" class="tab-panel hidden-panel">
       <div class="bg-white p-5 rounded-xl shadow-sm h-full">
-        <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
-          <h2 class="text-lg font-bold">Koleksi Tautan</h2>
-          <div class="flex items-center gap-2">
-            <input type="text" id="bookmark-search" aria-label="Cari tautan bookmark" placeholder="Cari tautan..." class="border rounded-lg p-2 text-sm w-48 outline-none">
-            <button id="btn-add-bookmark" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">+ Tambah</button>
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+          <h2 class="text-lg font-bold whitespace-nowrap">Koleksi Tautan</h2>
+          
+          <!-- PERBAIKAN: Penambahan Filter dan Sort untuk Bookmark -->
+          <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <input type="text" id="bookmark-search" aria-label="Cari tautan bookmark" placeholder="Cari..." class="border rounded-lg p-2 text-sm flex-1 md:w-32 outline-none">
+            <select id="bookmark-filter" aria-label="Filter kategori" class="border rounded-lg p-2 text-sm outline-none">
+              <option value="all">Semua Kategori</option>
+              <!-- Kategori akan diisi dinamis via JS -->
+            </select>
+            <select id="bookmark-sort" aria-label="Urutkan bookmark" class="border rounded-lg p-2 text-sm outline-none">
+              <option value="newest">Terbaru</option>
+              <option value="oldest">Terlama</option>
+              <option value="az">A - Z</option>
+              <option value="za">Z - A</option>
+            </select>
+            <button id="btn-add-bookmark" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">+ Tambah</button>
           </div>
         </div>
         <div id="bookmark-list" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -93,7 +117,6 @@
 
     <!-- PANEL 3: KUIS INTERAKTIF -->
     <section id="quiz-panel" role="tabpanel" class="tab-panel hidden-panel bg-white p-8 rounded-xl shadow-sm max-w-2xl mx-auto text-center">
-      <!-- Start Screen -->
       <div id="quiz-start-screen">
         <i class="ti ti-bulb text-6xl text-yellow-500 mb-4 block" aria-hidden="true"></i>
         <h2 class="text-2xl font-bold mb-2">Kuis Literasi Pemrograman</h2>
@@ -104,20 +127,16 @@
         <button id="start-quiz-btn" class="block mx-auto bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition">Mulai Kuis Sekarang</button>
       </div>
 
-      <!-- Question Screen -->
       <div id="quiz-question-screen" class="hidden-panel text-left">
         <div class="flex justify-between items-center mb-6 border-b pb-4">
           <span class="font-medium text-gray-500" id="quiz-progress">Soal 1 dari 5</span>
           <span class="font-bold text-blue-600">Skor: <span id="current-score">0</span></span>
         </div>
         <h3 class="text-xl font-bold mb-6" id="quiz-question-text">Pertanyaan akan muncul di sini...</h3>
-        <div id="quiz-options" class="flex flex-col gap-3">
-          <!-- Opsi dirender via JS -->
-        </div>
+        <div id="quiz-options" class="flex flex-col gap-3"></div>
         <button id="next-question-btn" class="hidden w-full mt-6 bg-gray-800 text-white p-3 rounded-lg font-bold hover:bg-gray-900 transition">Selanjutnya</button>
       </div>
 
-      <!-- Result Screen -->
       <div id="quiz-result-screen" class="hidden-panel">
         <i class="ti ti-trophy text-6xl text-yellow-500 mb-4 block" aria-hidden="true"></i>
         <h2 class="text-2xl font-bold mb-2">Kuis Selesai!</h2>
@@ -129,11 +148,7 @@
     </section>
   </main>
 
-  <!-- ============================================== -->
-  <!-- MODAL COMPONENTS -->
-  <!-- ============================================== -->
-
-  <!-- Modal Expense -->
+  <!-- MODAL COMPONENTS (Biarkan sama seperti sebelumnya) -->
   <div id="expense-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="expense-form-title">
     <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
       <form id="expense-form">
@@ -149,7 +164,7 @@
         </div>
         <div class="mb-3">
           <label for="expense-amount" class="block text-sm mb-1 font-medium">Jumlah (Rp)</label>
-          <input type="number" id="expense-amount" min="1" class="w-full border rounded-lg p-2 outline-none" required>
+          <input type="number" id="expense-amount" class="w-full border rounded-lg p-2 outline-none" required>
         </div>
         <div class="mb-3">
           <label for="expense-type" class="block text-sm mb-1 font-medium">Tipe</label>
@@ -170,7 +185,6 @@
     </div>
   </div>
 
-  <!-- Modal Bookmark -->
   <div id="bookmark-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="bookmark-form-title">
     <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
       <form id="bookmark-form">
@@ -185,8 +199,8 @@
           <input type="url" id="bookmark-url" placeholder="https://..." class="w-full border rounded-lg p-2 outline-none" required>
         </div>
         <div class="mb-3">
-          <label for="bookmark-category" class="block text-sm mb-1 font-medium">Kategori/Tag</label>
-          <input type="text" id="bookmark-category" class="w-full border rounded-lg p-2 outline-none" required>
+          <label for="bookmark-category-input" class="block text-sm mb-1 font-medium">Kategori/Tag</label>
+          <input type="text" id="bookmark-category-input" class="w-full border rounded-lg p-2 outline-none" required>
         </div>
         <div class="mb-6">
           <label for="bookmark-note" class="block text-sm mb-1 font-medium">Catatan Singkat</label>
@@ -200,7 +214,6 @@
     </div>
   </div>
 
-  <!-- Modal Hapus Global -->
   <div id="delete-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-title">
     <div class="bg-white rounded-xl shadow-lg w-full max-w-sm p-6 text-center">
       <i class="ti ti-alert-circle text-5xl text-red-500 mb-4 block" aria-hidden="true"></i>
@@ -213,7 +226,6 @@
     </div>
   </div>
 
-  <!-- Defer disematkan untuk performa -->
   <script src="assets/script.js" defer></script>
 </body>
 </html>
